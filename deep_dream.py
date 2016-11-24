@@ -58,6 +58,7 @@ saved_settings = {
 # the settings we will use in this experiment
 settings = saved_settings['dreamy']
 
+
 # util function to open, resize and format pictures into appropriate tensors
 def preprocess_image(image_path):
     img = imresize(imread(image_path), (img_width, img_height))
@@ -65,11 +66,13 @@ def preprocess_image(image_path):
     img = np.expand_dims(img, axis=0)
     return img
 
+
 # util function to convert a tensor into a valid image
 def deprocess_image(x):
     x = x.transpose((1, 2, 0))
     x = np.clip(x, 0, 255).astype('uint8')
     return x
+
 
 # this will contain our generated image
 dream = K.placeholder((1, 3, img_width, img_height))
@@ -133,12 +136,14 @@ print('Model loaded.')
 # get the symbolic outputs of each "key" layer (we gave them unique names).
 layer_dict = dict([(layer.name, layer) for layer in model.layers])
 
+
 # continuity loss util function
 def continuity_loss(x):
     assert K.ndim(x) == 4
-    a = K.square(x[:, :, :img_width-1, :img_height-1] - x[:, :, 1:, :img_height-1])
-    b = K.square(x[:, :, :img_width-1, :img_height-1] - x[:, :, :img_width-1, 1:])
+    a = K.square(x[:, :, :img_width - 1, :img_height - 1] - x[:, :, 1:, :img_height - 1])
+    b = K.square(x[:, :, :img_width - 1, :img_height - 1] - x[:, :, :img_width - 1, 1:])
     return K.sum(K.pow(a + b, 1.25))
+
 
 # define the loss
 loss = K.variable(0.)
@@ -149,7 +154,7 @@ for layer_name in settings['features']:
     x = layer_dict[layer_name].get_output()
     shape = layer_dict[layer_name].output_shape
     # we avoid border artifacts by only involving non-border pixels in the loss
-    loss -= coeff * K.sum(K.square(x[:, :, 2: shape[2]-2, 2: shape[3]-2])) / np.prod(shape[1:])
+    loss -= coeff * K.sum(K.square(x[:, :, 2: shape[2] - 2, 2: shape[3] - 2])) / np.prod(shape[1:])
 
 # add continuity loss (gives image local coherence, can result in an artful blur)
 loss += settings['continuity'] * continuity_loss(dream) / (3 * img_width * img_height)
@@ -164,14 +169,20 @@ grads = K.gradients(loss, dream)
 # set up helper functions to extract the loss and gradients
 # from the computational graph as Numpy arrays
 f_grads = K.function([dream], grads)
+
+
 def eval_grads(x):
     x = x.reshape((1, 3, img_width, img_height))
     return np.array(f_grads([x])).flatten().astype('float64')
 
+
 f_loss = K.function([dream], [loss])
+
+
 def eval_loss(x):
     x = x.reshape((1, 3, img_width, img_height))
     return f_loss([x])[0].astype('float64')
+
 
 # add a random jitter to the initial image. This will be reverted at decoding time
 random_jitter = (settings['jitter'] * 2) * (np.random.random((3, img_width, img_height)) - 0.5)
